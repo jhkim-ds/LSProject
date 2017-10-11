@@ -26,6 +26,12 @@ while row:
     dtList.append(row[0])
     row = cursor.fetchone()
 
+res = pd.read_sql("SELECT * FROM smk.stk_hist", mysqlcon)
+res = res.set_index(['period','stk_cd']).unstack(1)
+res.columns = res.columns.droplevel(0)
+res.fillna(method='ffill', inplace=True)
+
+stockPrice = res.copy().transpose()
 
 for i in range(len(dtList)):
     if i == 0 or i == len(dtList)-1:
@@ -72,18 +78,29 @@ for i in range(len(dtList)):
     del df['PRICE1']
     del df['PRICE2']
 
-    # 수익률
-    res = pd.read_sql("SELECT * FROM smk.stk_hist where period='%s'" % dtList[i], mysqlcon)
-    res.columns = ['DT', 'CODE', 'PRICE1']
-    df = df.merge(res[['CODE', 'PRICE1']], left_on=['CODE'], right_on=['CODE'])
 
-    res = pd.read_sql("SELECT * FROM smk.stk_hist where period='%s'" % dtList[i+1], mysqlcon)
-    res.columns = ['DT2', 'CODE', 'PRICE2']
-    df = df.merge(res, left_on=['CODE'], right_on=['CODE'])
+    # 수익률
+    # res = pd.read_sql("SELECT * FROM smk.stk_hist where period='%s'" % dtList[i], mysqlcon)
+    # res.columns = ['DT', 'CODE', 'PRICE1']
+    # df = df.merge(res[['CODE', 'PRICE1']], left_on=['CODE'], right_on=['CODE'])
+    #
+    # res = pd.read_sql("SELECT * FROM smk.stk_hist where period='%s'" % dtList[i+1], mysqlcon)
+    # res.columns = ['DT2', 'CODE', 'PRICE2']
+    # df = df.merge(res, left_on=['CODE'], right_on=['CODE'])
+    # print(stockPrice[[dtList[i]]].index)
+    temp = stockPrice[[dtList[i]]]
+    temp2 = stockPrice[[dtList[i+1]]]
+    df['DT2'] = dtList[i+1]
+    df['PRICE1'] = None
+    df['PRICE2'] = None
+    for c in df['CODE'].tolist():
+        df.loc[df['CODE'] == c, 'PRICE1'] = float(temp.loc[temp.index == c, dtList[i]])
+        df.loc[df['CODE'] == c, 'PRICE2'] = float(temp2.loc[temp.index == c, dtList[i+1]])
 
     df = df[['DT1', 'DT2', 'CODE', 'NAME', 'WICSBIG', 'CAP', 'FACTOR', 'PRICE1', 'PRICE2', 'RANK']]
     print(dtList[i], dtList[i+1])
     print(df)
+
     break
 print(dtList)
     # print(len(df.index))
