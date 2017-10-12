@@ -13,11 +13,15 @@ import xlsxwriter
 
 mysqlcon = pymysql.connect(host='172.17.2.100', port=3306, user='smkim', passwd='smkim', db='smk',charset='utf8')
 
-startDt = '20150331'
+startDt = '20120331'
 conn = pyodbc.connect(sqlInfo)
 cursor = conn.cursor()
+# string = "select * from (select top 1 YMD from wfns2db.dbo.tz_date where TRADE_YN='1' and MNO_OF_YR in ('3','5','8','11') AND MN_END_YN='1' AND YMD<'%s' order by YMD desc) a \
+#           union all select YMD from wfns2db.dbo.tz_date where TRADE_YN='1' and MNO_OF_YR in ('3','5','8','11') AND MN_END_YN='1' AND YMD>='%s' union all select * from (select top 1 ymd from wfns2db.dbo.tz_date where trade_yn='1' order by dt desc) a" % (startDt, startDt)
+
 string = "select * from (select top 1 YMD from wfns2db.dbo.tz_date where TRADE_YN='1' and MNO_OF_YR in ('3','5','8','11') AND MN_END_YN='1' AND YMD<'%s' order by YMD desc) a \
-          union all select YMD from wfns2db.dbo.tz_date where TRADE_YN='1' and MNO_OF_YR in ('3','5','8','11') AND MN_END_YN='1' AND YMD>='%s' union all select * from (select top 1 ymd from wfns2db.dbo.tz_date where trade_yn='1' order by dt desc) a" % (startDt, startDt)
+          union all select YMD from wfns2db.dbo.tz_date where TRADE_YN='1' and MNO_OF_YR in ('3','5','8','11') AND MN_END_YN='1' AND YMD>='%s' union all select * from (select ymd from wfns2db.dbo.tz_date where trade_yn='1' and ymd='20170927' ) a" % (startDt, startDt)
+
 
 cursor.execute(string)
 row = cursor.fetchone()
@@ -32,6 +36,7 @@ res.columns = res.columns.droplevel(0)
 res.fillna(method='ffill', inplace=True)
 
 stockPrice = res.copy().transpose()
+rDict = {}
 
 for i in range(len(dtList)):
     if i == 0 or i == len(dtList)-1:
@@ -78,7 +83,6 @@ for i in range(len(dtList)):
     del df['PRICE1']
     del df['PRICE2']
 
-
     # 수익률
     # res = pd.read_sql("SELECT * FROM smk.stk_hist where period='%s'" % dtList[i], mysqlcon)
     # res.columns = ['DT', 'CODE', 'PRICE1']
@@ -97,12 +101,17 @@ for i in range(len(dtList)):
         df.loc[df['CODE'] == c, 'PRICE1'] = float(temp.loc[temp.index == c, dtList[i]])
         df.loc[df['CODE'] == c, 'PRICE2'] = float(temp2.loc[temp.index == c, dtList[i+1]])
 
-    df = df[['DT1', 'DT2', 'CODE', 'NAME', 'WICSBIG', 'CAP', 'FACTOR', 'PRICE1', 'PRICE2', 'RANK']]
-    print(dtList[i], dtList[i+1])
-    print(df)
+    df['R'] = df['PRICE2'] / df['PRICE1'] - 1
+    df = df[['DT1', 'DT2', 'CODE', 'NAME', 'WICSBIG', 'CAP', 'FACTOR', 'PRICE1', 'PRICE2', 'R', 'RANK']]
+    df['RANK'] = df.groupby(['WICSBIG']).rank(axis=0, ascending=False)['R']
+    df = df.reset_index(drop=True)
 
-    break
-print(dtList)
+    rDict[dtList[i+1]] = df[df['RANK'] == 1]['R'].mean() - df[df['RANK'] == 2]['R'].mean()
+    # break
+# print(dtList)
+# print(rDict)
+rDict = pd.DataFrame({'DT': list(rDict.keys()), 'R': list(rDict.values())})
+# print(rDict.sort_values('DT').reset_index(drop=True))
     # print(len(df.index))
     # print(df['WICSBIG'].drop_duplicates())
     # print(df['WICSBIG'].unique())
