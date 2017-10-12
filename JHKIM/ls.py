@@ -111,7 +111,7 @@ for i in range(len(dtList)):
 # print(dtList)
 # print(rDict)
 rDict = pd.DataFrame({'DT': list(rDict.keys()), 'R': list(rDict.values())})
-# print(rDict.sort_values('DT').reset_index(drop=True))
+print(rDict.sort_values('DT').reset_index(drop=True))
     # print(len(df.index))
     # print(df['WICSBIG'].drop_duplicates())
     # print(df['WICSBIG'].unique())
