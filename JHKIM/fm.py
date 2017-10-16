@@ -11,6 +11,7 @@ class fm():
 
         self.conn = pyodbc.connect(self.sqlInfo)
         self.cursor = self.conn.cursor()
+        self.fnum = 1
 
     def univ(self, dt):
         string = "select b.TRD_DT, 'A' + b.stk_cd stk_cd, b.stk_nm_kor, d.SEC_NM_KOR 'wicsBig', e.mkt_val \
@@ -38,10 +39,29 @@ class fm():
 
         return df
 
-    # def factor(self):
-    # def scoring(self):
+    def factor(self, df, item):
+        res = pd.read_sql("SELECT stk_cd, val FROM smk.stock_items where item_cd='%s' and period='%s'" % (item, list(set(df['DT1'].tolist()))[0]), self.mysqlcon)
+        df = df.merge(res, left_on='CODE', right_on='stk_cd', how='left')
+
+        df.rename(columns={'val': 'f%s' % self.fnum}, inplace=True)
+        self.fnum += 1
+        del df['stk_cd']
+
+        return df
+
+    def scoring(self, df, fnum):
+        for i in range(fnum-1):
+            df[['f%s' % str(i + 1)]] = df[['f%s' % str(i + 1)]].apply(lambda x: (x-x.mean()) / x.std())
+            df[['f%s' % str(i + 1)]].fillna(0, inplace=True)
+
+        print(df)
+
     # def port(self):
     # def r(self):
 
 test = fm()
-print(test.univ('20170831'))
+df = test.univ('20170831')
+df = test.factor(df,'S102306')
+df = test.factor(df,'S102306')
+df = test.scoring(df, test.fnum)
+print("S")
